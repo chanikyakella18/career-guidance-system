@@ -1,0 +1,142 @@
+AI Career Guidance System – Data Structure
+1. Student Table
+
+Stores all student information.
+
+CREATE TABLE students (
+    student_id INT PRIMARY KEY AUTO_INCREMENT,
+    full_name VARCHAR(100),
+    email VARCHAR(100),
+    phone VARCHAR(15),
+    department VARCHAR(50),
+    semester INT,
+    percentage FLOAT,
+    attendance FLOAT,
+    aptitude_score FLOAT,
+    communication_score FLOAT,
+    technical_score FLOAT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+2. ML Models Table
+
+Stores AI/ML models used in the app.
+
+CREATE TABLE ml_models (
+    model_id INT PRIMARY KEY AUTO_INCREMENT,
+    model_name VARCHAR(100),
+    model_type VARCHAR(50),
+    description TEXT
+);
+
+Example Data:
+
+model_name	model_type
+Linear Regression	Prediction
+Logistic Regression	Classification
+SVM	Classification
+Clustering	Recommendation
+3. Performance Prediction Table
+
+Predicts student performance.
+
+CREATE TABLE performance_prediction (
+    prediction_id INT PRIMARY KEY AUTO_INCREMENT,
+    student_id INT,
+    predicted_score FLOAT,
+    performance_level VARCHAR(50),
+    FOREIGN KEY (student_id) REFERENCES students(student_id)
+);
+4. Placement Eligibility Table
+
+Checks placement eligibility using:
+
+Attendance
+Aptitude
+Percentage
+CREATE TABLE placement_eligibility (
+    eligibility_id INT PRIMARY KEY AUTO_INCREMENT,
+    student_id INT,
+    attendance_status VARCHAR(20),
+    aptitude_status VARCHAR(20),
+    percentage_status VARCHAR(20),
+    overall_eligibility VARCHAR(20),
+    FOREIGN KEY (student_id) REFERENCES students(student_id)
+);
+5. Career Domain Suggestion Table
+
+Suggests career domain using clustering/SVM.
+
+CREATE TABLE career_suggestions (
+    suggestion_id INT PRIMARY KEY AUTO_INCREMENT,
+    student_id INT,
+    suggested_domain VARCHAR(100),
+    confidence_score FLOAT,
+    FOREIGN KEY (student_id) REFERENCES students(student_id)
+);
+
+Examples:
+
+Web Development
+AI/ML
+Cyber Security
+Data Science
+Cloud Computing
+6. Percentage Grouping Table
+
+Groups students percentage-wise.
+
+CREATE TABLE percentage_groups (
+    group_id INT PRIMARY KEY AUTO_INCREMENT,
+    student_id INT,
+    percentage_range VARCHAR(20),
+    FOREIGN KEY (student_id) REFERENCES students(student_id)
+);
+
+Example Groups:
+
+Percentage	Group
+90–100	Excellent
+75–89	Good
+60–74	Average
+Below 60	Needs Improvement
+App Flow Structure
+Student Data
+      ↓
+Data Analysis
+      ↓
+ML Models
+ ├── Linear Regression
+ ├── Logistic Regression
+ ├── SVM
+ └── Clustering
+      ↓
+Prediction Results
+      ↓
+Career Guidance
+      ↓
+Placement Eligibility
+Recommended Frontend Pages
+Login Page
+Student Dashboard
+Upload Student Data
+Prediction Page
+Career Suggestion Page
+Placement Eligibility Page
+Analytics Dashboard
+Admin Panel
+Technologies Recommended
+Frontend
+React
+Flutter
+HTML/CSS/JavaScript
+Backend
+Python Flask
+Django
+Node.js
+Database
+MySQL
+PostgreSQL
+AI/ML
+Scikit-learn
+Pandas
+NumPy

@@ -1,22 +1,35 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: AI Career Guidance System API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: students
+    description: Student management
+  - name: models
+    description: ML models
+  - name: predictions
+    description: Performance predictions
+  - name: eligibility
+    description: Placement eligibility
+  - name: career-suggestions
+    description: Career domain suggestions
+  - name: percentage-groups
+    description: Percentage grouping
+  - name: dashboard
+    description: Dashboard analytics
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +37,405 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /students:
+    get:
+      operationId: listStudents
+      tags: [students]
+      summary: List all students
+      parameters:
+        - name: department
+          in: query
+          schema:
+            type: string
+        - name: semester
+          in: query
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of students
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Student"
+    post:
+      operationId: createStudent
+      tags: [students]
+      summary: Create a student
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudentInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Student"
+
+  /students/{id}:
+    get:
+      operationId: getStudent
+      tags: [students]
+      summary: Get a student
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Student
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Student"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateStudent
+      tags: [students]
+      summary: Update a student
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudentUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Student"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteStudent
+      tags: [students]
+      summary: Delete a student
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  /models:
+    get:
+      operationId: listModels
+      tags: [models]
+      summary: List ML models
+      responses:
+        "200":
+          description: List of models
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MlModel"
+    post:
+      operationId: createModel
+      tags: [models]
+      summary: Create an ML model
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MlModelInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MlModel"
+
+  /predictions:
+    get:
+      operationId: listPredictions
+      tags: [predictions]
+      summary: List all predictions
+      responses:
+        "200":
+          description: List of predictions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Prediction"
+    post:
+      operationId: createPrediction
+      tags: [predictions]
+      summary: Run prediction for a student
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PredictionInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Prediction"
+
+  /predictions/student/{studentId}:
+    get:
+      operationId: getStudentPrediction
+      tags: [predictions]
+      summary: Get predictions for a student
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Prediction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Prediction"
+        "404":
+          description: Not found
+
+  /eligibility:
+    get:
+      operationId: listEligibility
+      tags: [eligibility]
+      summary: List placement eligibility records
+      responses:
+        "200":
+          description: List of eligibility records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Eligibility"
+    post:
+      operationId: computeEligibility
+      tags: [eligibility]
+      summary: Compute placement eligibility for a student
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EligibilityInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Eligibility"
+
+  /eligibility/student/{studentId}:
+    get:
+      operationId: getStudentEligibility
+      tags: [eligibility]
+      summary: Get eligibility for a student
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Eligibility record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Eligibility"
+        "404":
+          description: Not found
+
+  /career-suggestions:
+    get:
+      operationId: listCareerSuggestions
+      tags: [career-suggestions]
+      summary: List all career suggestions
+      responses:
+        "200":
+          description: List of career suggestions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CareerSuggestion"
+    post:
+      operationId: createCareerSuggestion
+      tags: [career-suggestions]
+      summary: Generate career suggestion for a student
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CareerSuggestionInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareerSuggestion"
+
+  /career-suggestions/student/{studentId}:
+    get:
+      operationId: getStudentCareerSuggestion
+      tags: [career-suggestions]
+      summary: Get career suggestion for a student
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Career suggestion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareerSuggestion"
+        "404":
+          description: Not found
+
+  /percentage-groups:
+    get:
+      operationId: listPercentageGroups
+      tags: [percentage-groups]
+      summary: List all percentage groups
+      responses:
+        "200":
+          description: List of groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PercentageGroup"
+
+  /percentage-groups/compute:
+    post:
+      operationId: computePercentageGroups
+      tags: [percentage-groups]
+      summary: Compute percentage groups for all students
+      responses:
+        "200":
+          description: Groups computed
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PercentageGroup"
+
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get dashboard summary stats
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/department-breakdown:
+    get:
+      operationId: getDepartmentBreakdown
+      tags: [dashboard]
+      summary: Get student count by department
+      responses:
+        "200":
+          description: Department breakdown
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DepartmentBreakdown"
+
+  /dashboard/performance-distribution:
+    get:
+      operationId: getPerformanceDistribution
+      tags: [dashboard]
+      summary: Get performance level distribution
+      responses:
+        "200":
+          description: Performance distribution
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PerformanceDistribution"
+
+  /dashboard/career-domain-distribution:
+    get:
+      operationId: getCareerDomainDistribution
+      tags: [dashboard]
+      summary: Get career domain distribution
+      responses:
+        "200":
+          description: Career domain distribution
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CareerDomainDistribution"
+
+  /dashboard/eligibility-summary:
+    get:
+      operationId: getEligibilitySummary
+      tags: [dashboard]
+      summary: Get placement eligibility summary
+      responses:
+        "200":
+          description: Eligibility summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EligibilitySummary"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +443,246 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    Student:
+      type: object
+      required: [id, fullName, email, department, semester]
+      properties:
+        id:
+          type: integer
+        fullName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: ["string", "null"]
+        department:
+          type: string
+        semester:
+          type: integer
+        percentage:
+          type: ["number", "null"]
+        attendance:
+          type: ["number", "null"]
+        aptitudeScore:
+          type: ["number", "null"]
+        communicationScore:
+          type: ["number", "null"]
+        technicalScore:
+          type: ["number", "null"]
+        createdAt:
+          type: string
+
+    StudentInput:
+      type: object
+      required: [fullName, email, department, semester]
+      properties:
+        fullName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        department:
+          type: string
+        semester:
+          type: integer
+        percentage:
+          type: number
+        attendance:
+          type: number
+        aptitudeScore:
+          type: number
+        communicationScore:
+          type: number
+        technicalScore:
+          type: number
+
+    StudentUpdate:
+      type: object
+      properties:
+        fullName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        department:
+          type: string
+        semester:
+          type: integer
+        percentage:
+          type: number
+        attendance:
+          type: number
+        aptitudeScore:
+          type: number
+        communicationScore:
+          type: number
+        technicalScore:
+          type: number
+
+    MlModel:
+      type: object
+      required: [id, modelName, modelType]
+      properties:
+        id:
+          type: integer
+        modelName:
+          type: string
+        modelType:
+          type: string
+        description:
+          type: ["string", "null"]
+
+    MlModelInput:
+      type: object
+      required: [modelName, modelType]
+      properties:
+        modelName:
+          type: string
+        modelType:
+          type: string
+        description:
+          type: string
+
+    Prediction:
+      type: object
+      required: [id, studentId, predictedScore, performanceLevel]
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        predictedScore:
+          type: number
+        performanceLevel:
+          type: string
+        student:
+          $ref: "#/components/schemas/Student"
+
+    PredictionInput:
+      type: object
+      required: [studentId]
+      properties:
+        studentId:
+          type: integer
+
+    Eligibility:
+      type: object
+      required: [id, studentId, attendanceStatus, aptitudeStatus, percentageStatus, overallEligibility]
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        attendanceStatus:
+          type: string
+        aptitudeStatus:
+          type: string
+        percentageStatus:
+          type: string
+        overallEligibility:
+          type: string
+        student:
+          $ref: "#/components/schemas/Student"
+
+    EligibilityInput:
+      type: object
+      required: [studentId]
+      properties:
+        studentId:
+          type: integer
+
+    CareerSuggestion:
+      type: object
+      required: [id, studentId, suggestedDomain, confidenceScore]
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        suggestedDomain:
+          type: string
+        confidenceScore:
+          type: number
+        student:
+          $ref: "#/components/schemas/Student"
+
+    CareerSuggestionInput:
+      type: object
+      required: [studentId]
+      properties:
+        studentId:
+          type: integer
+
+    PercentageGroup:
+      type: object
+      required: [id, studentId, percentageRange]
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        percentageRange:
+          type: string
+        student:
+          $ref: "#/components/schemas/Student"
+
+    DashboardStats:
+      type: object
+      required: [totalStudents, totalPredictions, totalEligible, totalSuggestions, avgPercentage, avgAttendance, avgAptitude]
+      properties:
+        totalStudents:
+          type: integer
+        totalPredictions:
+          type: integer
+        totalEligible:
+          type: integer
+        totalSuggestions:
+          type: integer
+        avgPercentage:
+          type: number
+        avgAttendance:
+          type: number
+        avgAptitude:
+          type: number
+
+    DepartmentBreakdown:
+      type: object
+      required: [department, count]
+      properties:
+        department:
+          type: string
+        count:
+          type: integer
+
+    PerformanceDistribution:
+      type: object
+      required: [level, count]
+      properties:
+        level:
+          type: string
+        count:
+          type: integer
+
+    CareerDomainDistribution:
+      type: object
+      required: [domain, count]
+      properties:
+        domain:
+          type: string
+        count:
+          type: integer
+
+    EligibilitySummary:
+      type: object
+      required: [eligible, notEligible, pending]
+      properties:
+        eligible:
+          type: integer
+        notEligible:
+          type: integer
+        pending:
+          type: integer
