@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  useListStudents,
   useListResumeAnalyses,
   getListResumeAnalysesQueryKey,
 } from "@workspace/api-client-react";
@@ -9,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
@@ -18,7 +16,6 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
-  ChevronRight,
   Upload,
   Target,
   TrendingUp,
@@ -37,7 +34,6 @@ import {
 
 interface AnalysisResult {
   id: number;
-  studentId: number;
   skillsFound: string[];
   score: number;
   eligibilityPrediction: string;
@@ -51,7 +47,6 @@ interface AnalysisResult {
   hasLinkedIn?: boolean;
   hasGitHub?: boolean;
   hasQuantifiedResults?: boolean;
-  student?: { fullName: string; department: string; percentage?: number | null } | null;
 }
 
 // ── Sub-components ───────────────────────────────────────────────────────────
@@ -59,20 +54,20 @@ interface AnalysisResult {
 function EligibilityBadge({ prediction }: { prediction: string }) {
   if (prediction === "Eligible") {
     return (
-      <Badge className="bg-green-100 text-green-800 border-green-200 gap-1.5 px-3 py-1 text-sm" data-testid="badge-eligible">
+      <Badge className="bg-green-100 text-green-800 border-green-200 gap-1.5 px-3 py-1 text-sm">
         <CheckCircle2 className="w-4 h-4" /> Eligible for Placement
       </Badge>
     );
   }
   if (prediction === "Potentially Eligible") {
     return (
-      <Badge className="bg-amber-100 text-amber-800 border-amber-200 gap-1.5 px-3 py-1 text-sm" data-testid="badge-potential">
+      <Badge className="bg-amber-100 text-amber-800 border-amber-200 gap-1.5 px-3 py-1 text-sm">
         <AlertCircle className="w-4 h-4" /> Potentially Eligible
       </Badge>
     );
   }
   return (
-    <Badge className="bg-red-100 text-red-800 border-red-200 gap-1.5 px-3 py-1 text-sm" data-testid="badge-not-eligible">
+    <Badge className="bg-red-100 text-red-800 border-red-200 gap-1.5 px-3 py-1 text-sm">
       <XCircle className="w-4 h-4" /> Not Eligible
     </Badge>
   );
@@ -86,13 +81,12 @@ function ScoreGauge({ score }: { score: number }) {
       <div
         className="relative flex items-center justify-center w-32 h-32 rounded-full border-8"
         style={{ borderColor: color + "33" }}
-        data-testid="gauge-score"
       >
         <div
           className="absolute inset-2 rounded-full flex flex-col items-center justify-center"
           style={{ background: color + "12" }}
         >
-          <span className="text-3xl font-bold font-mono" style={{ color }} data-testid="text-score">
+          <span className="text-3xl font-bold font-mono" style={{ color }}>
             {score.toFixed(0)}
           </span>
           <span className="text-xs text-muted-foreground">/100</span>
@@ -155,7 +149,7 @@ function FileDropzone({
 
   return (
     <div
-      className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${
+      className={`relative border-2 border-dashed rounded-xl p-10 text-center transition-all cursor-pointer ${
         dragging
           ? "border-primary bg-primary/5 scale-[1.01]"
           : file
@@ -166,14 +160,12 @@ function FileDropzone({
       onDragLeave={() => setDragging(false)}
       onDrop={handleDrop}
       onClick={() => inputRef.current?.click()}
-      data-testid="dropzone-resume"
     >
       <input
         ref={inputRef}
         type="file"
         accept=".pdf,.docx,.txt"
         className="hidden"
-        data-testid="input-file-resume"
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (f) onFile(f);
@@ -181,23 +173,25 @@ function FileDropzone({
       />
 
       {file ? (
-        <div className="flex flex-col items-center gap-2">
-          <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-            <FileText className="w-6 h-6 text-green-600" />
-          </div>
-          <p className="font-semibold text-green-700 text-sm" data-testid="text-file-name">{file.name}</p>
-          <p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB · Click to change file</p>
-        </div>
-      ) : (
         <div className="flex flex-col items-center gap-3">
-          <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
-            <FileUp className="w-7 h-7 text-muted-foreground" />
+          <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
+            <FileText className="w-7 h-7 text-green-600" />
           </div>
           <div>
-            <p className="font-semibold">Drop your resume here</p>
-            <p className="text-sm text-muted-foreground mt-0.5">or click to browse</p>
+            <p className="font-semibold text-green-700">{file.name}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{(file.size / 1024).toFixed(1)} KB · Click to change file</p>
           </div>
-          <p className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+            <FileUp className="w-8 h-8 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="font-semibold text-base">Drop your resume here</p>
+            <p className="text-sm text-muted-foreground mt-1">or click to browse files</p>
+          </div>
+          <p className="text-xs text-muted-foreground bg-muted px-3 py-1.5 rounded-full">
             PDF · DOCX · TXT — max 10 MB
           </p>
         </div>
@@ -216,20 +210,18 @@ function ResultPanel({ result }: { result: AnalysisResult }) {
       {/* Header */}
       <Card>
         <CardContent className="pt-5 pb-5">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Student</p>
-              <p className="font-semibold text-lg leading-tight" data-testid="text-student-name">
-                {result.student?.fullName ?? `Student #${result.studentId}`}
-              </p>
-              <p className="text-sm text-muted-foreground">{result.student?.department}</p>
               {result.fileName && (
-                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                  <FileText className="w-3 h-3" />
+                <p className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
+                  <FileText className="w-4 h-4 text-muted-foreground" />
                   {result.fileName}
-                  {result.wordCount ? ` · ${result.wordCount} words` : ""}
                 </p>
               )}
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {result.wordCount ? `${result.wordCount} words · ` : ""}
+                Analyzed {new Date(result.analyzedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+              </p>
             </div>
             <EligibilityBadge prediction={result.eligibilityPrediction} />
           </div>
@@ -247,7 +239,6 @@ function ResultPanel({ result }: { result: AnalysisResult }) {
                 <Progress value={result.score} className="h-2.5" />
               </div>
 
-              {/* Quick signals */}
               <div className="flex flex-wrap gap-2 pt-1">
                 <div className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${result.hasGitHub ? "bg-green-50 text-green-700" : "bg-muted text-muted-foreground"}`}>
                   <Github className="w-3 h-3" />
@@ -294,7 +285,7 @@ function ResultPanel({ result }: { result: AnalysisResult }) {
           <CardContent>
             <div className="flex flex-wrap gap-1.5">
               {result.skillsFound.map(skill => (
-                <Badge key={skill} variant="secondary" className="text-xs capitalize" data-testid={`badge-skill-${skill}`}>
+                <Badge key={skill} variant="secondary" className="text-xs capitalize">
                   {skill}
                 </Badge>
               ))}
@@ -314,7 +305,7 @@ function ResultPanel({ result }: { result: AnalysisResult }) {
         <CardContent>
           <ul className="space-y-2">
             {result.strengths.map((s, i) => (
-              <li key={i} className="flex items-start gap-2.5 text-sm" data-testid={`text-strength-${i}`}>
+              <li key={i} className="flex items-start gap-2.5 text-sm">
                 <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
                 <span>{s}</span>
               </li>
@@ -334,7 +325,7 @@ function ResultPanel({ result }: { result: AnalysisResult }) {
         <CardContent>
           <ul className="space-y-2">
             {result.weaknesses.map((w, i) => (
-              <li key={i} className="flex items-start gap-2.5 text-sm" data-testid={`text-weakness-${i}`}>
+              <li key={i} className="flex items-start gap-2.5 text-sm">
                 <XCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
                 <span>{w}</span>
               </li>
@@ -353,12 +344,12 @@ function ResultPanel({ result }: { result: AnalysisResult }) {
             <Lightbulb className="w-4 h-4" />
             Changes to Make
           </CardTitle>
-          <CardDescription className="text-xs">Specific improvements to boost your placement chances</CardDescription>
+          <CardDescription className="text-xs">Specific improvements to boost placement chances</CardDescription>
         </CardHeader>
         <CardContent>
           <ol className="space-y-2.5">
             {result.recommendations.map((r, i) => (
-              <li key={i} className="flex items-start gap-2.5 text-sm" data-testid={`text-recommendation-${i}`}>
+              <li key={i} className="flex items-start gap-2.5 text-sm">
                 <span className="shrink-0 w-5 h-5 rounded-full bg-amber-200 text-amber-800 text-xs font-bold flex items-center justify-center mt-0.5">
                   {i + 1}
                 </span>
@@ -378,26 +369,21 @@ export default function ResumeAnalysis() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [selectedStudentId, setSelectedStudentId] = useState<string>("");
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [activeResult, setActiveResult] = useState<AnalysisResult | null>(null);
 
-  const { data: students, isLoading: studentsLoading } = useListStudents();
   const { data: analyses, isLoading: analysesLoading } = useListResumeAnalyses();
 
-  const selectedStudent = students?.find(s => String(s.id) === selectedStudentId);
-
   async function handleAnalyze() {
-    if (!selectedStudentId || !file) {
-      toast({ title: "Missing fields", description: "Please select a student and upload a resume file.", variant: "destructive" });
+    if (!file) {
+      toast({ title: "No file selected", description: "Please upload a resume file first.", variant: "destructive" });
       return;
     }
 
     setUploading(true);
     try {
       const formData = new FormData();
-      formData.append("studentId", selectedStudentId);
       formData.append("resume", file);
 
       const res = await fetch("/api/resume-analysis/upload", { method: "POST", body: formData });
@@ -410,7 +396,7 @@ export default function ResumeAnalysis() {
       queryClient.invalidateQueries({ queryKey: getListResumeAnalysesQueryKey() });
       toast({
         title: "Analysis complete",
-        description: `${result.student?.fullName ?? "Student"} scored ${result.score.toFixed(0)}/100 — ${result.eligibilityPrediction}`,
+        description: `Score: ${result.score.toFixed(0)}/100 — ${result.eligibilityPrediction}`,
       });
     } catch (err: unknown) {
       toast({
@@ -426,7 +412,6 @@ export default function ResumeAnalysis() {
   function handleReset() {
     setFile(null);
     setActiveResult(null);
-    setSelectedStudentId("");
   }
 
   return (
@@ -439,11 +424,11 @@ export default function ResumeAnalysis() {
             Resume Analysis
           </h1>
           <p className="text-muted-foreground mt-1">
-            Upload a student resume (PDF or DOCX) to predict placement eligibility and get specific improvement suggestions.
+            Upload any resume (PDF or DOCX) to instantly check placement eligibility and get specific improvement suggestions.
           </p>
         </div>
         {activeResult && (
-          <Button variant="outline" size="sm" onClick={handleReset} data-testid="button-reset">
+          <Button variant="outline" size="sm" onClick={handleReset}>
             <RotateCcw className="w-4 h-4 mr-2" />
             New Analysis
           </Button>
@@ -459,60 +444,18 @@ export default function ResumeAnalysis() {
                 <Upload className="w-4 h-4 text-accent" />
                 Upload Resume
               </CardTitle>
-              <CardDescription>Select a student, then upload their resume file for AI analysis.</CardDescription>
+              <CardDescription>
+                Upload any resume file — no login or student selection required.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Student selector */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Student</label>
-                {studentsLoading ? (
-                  <Skeleton className="h-10 w-full" />
-                ) : (
-                  <Select value={selectedStudentId} onValueChange={setSelectedStudentId} data-testid="select-student">
-                    <SelectTrigger data-testid="trigger-student-select">
-                      <SelectValue placeholder="Select a student..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {students?.map(s => (
-                        <SelectItem key={s.id} value={String(s.id)} data-testid={`option-student-${s.id}`}>
-                          {s.fullName} — {s.department}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-
-              {/* Academic context */}
-              {selectedStudent && (
-                <div className="grid grid-cols-3 gap-3 p-3 rounded-lg bg-muted/50 text-sm border">
-                  <div>
-                    <p className="text-muted-foreground text-xs mb-0.5">Percentage</p>
-                    <p className="font-semibold">{selectedStudent.percentage ?? "—"}%</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground text-xs mb-0.5">Attendance</p>
-                    <p className="font-semibold">{selectedStudent.attendance ?? "—"}%</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground text-xs mb-0.5">Aptitude</p>
-                    <p className="font-semibold">{selectedStudent.aptitudeScore ?? "—"}/100</p>
-                  </div>
-                </div>
-              )}
-
-              {/* File drop zone */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Resume File</label>
-                <FileDropzone onFile={setFile} file={file} disabled={uploading} />
-              </div>
+            <CardContent className="space-y-5">
+              <FileDropzone onFile={setFile} file={file} disabled={uploading} />
 
               <Button
-                data-testid="button-analyze"
                 className="w-full"
                 size="lg"
                 onClick={handleAnalyze}
-                disabled={uploading || !selectedStudentId || !file}
+                disabled={uploading || !file}
               >
                 {uploading ? (
                   <span className="flex items-center gap-2">
@@ -528,7 +471,7 @@ export default function ResumeAnalysis() {
               </Button>
 
               <p className="text-center text-xs text-muted-foreground">
-                Supports PDF, DOCX, and TXT files up to 10 MB
+                Supports PDF, DOCX, and TXT · max 10 MB
               </p>
             </CardContent>
           </Card>
@@ -544,7 +487,7 @@ export default function ResumeAnalysis() {
                 <Target className="w-14 h-14 text-muted-foreground/25 mx-auto mb-4" />
                 <p className="font-semibold text-muted-foreground">No analysis yet</p>
                 <p className="text-sm text-muted-foreground mt-1 max-w-[220px] mx-auto">
-                  Upload a resume to see eligibility prediction and improvement suggestions.
+                  Upload a resume to see the eligibility score and what changes to make.
                 </p>
               </CardContent>
             </Card>
@@ -576,26 +519,21 @@ export default function ResumeAnalysis() {
                 key={analysis.id}
                 className="hover:shadow-md transition-all cursor-pointer hover:border-primary/30"
                 onClick={() => setActiveResult(analysis as AnalysisResult)}
-                data-testid={`card-analysis-${analysis.id}`}
               >
                 <CardContent className="py-4 flex items-center gap-4">
                   <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
                     <FileText className="w-5 h-5 text-muted-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <p className="font-medium text-sm truncate" data-testid={`text-name-${analysis.id}`}>
-                        {analysis.student?.fullName ?? `Student #${analysis.studentId}`}
-                      </p>
-                      <span className="text-muted-foreground text-xs">·</span>
-                      <p className="text-xs text-muted-foreground">{analysis.student?.department}</p>
-                    </div>
+                    <p className="font-medium text-sm truncate">
+                      Resume #{analysis.id}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       {analysis.skillsFound.length} skills · {new Date(analysis.analyzedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                     </p>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-xl font-bold font-mono" data-testid={`text-score-${analysis.id}`}>
+                    <span className="text-xl font-bold font-mono">
                       {analysis.score.toFixed(0)}<span className="text-xs font-normal text-muted-foreground">/100</span>
                     </span>
                     <EligibilityBadge prediction={analysis.eligibilityPrediction} />

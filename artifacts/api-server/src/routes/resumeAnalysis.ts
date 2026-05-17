@@ -1,13 +1,11 @@
 import { Router, type IRouter } from "express";
-import { eq, desc } from "drizzle-orm";
-import { db, resumeAnalysisTable, studentsTable } from "@workspace/db";
-import { GetStudentResumeAnalysisParams } from "@workspace/api-zod";
+import { desc } from "drizzle-orm";
+import { db, resumeAnalysisTable } from "@workspace/db";
 import multer from "multer";
 import { createRequire } from "node:module";
 import mammoth from "mammoth";
 
 const _require = createRequire(import.meta.url);
-// pdf-parse only exposes CJS; load via require to avoid ESM default-export issues
 const pdfParse = _require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -48,7 +46,7 @@ const SOFT_SKILL_KEYWORDS = [
   "presentation", "critical thinking", "time management", "adaptable", "creative",
 ];
 
-const SECTION_KEYWORDS = {
+const SECTION_KEYWORDS: Record<string, string[]> = {
   objective: ["objective", "summary", "profile", "about me"],
   education: ["education", "qualification", "academic"],
   experience: ["experience", "work history", "employment", "internship"],
@@ -66,7 +64,7 @@ function detectSections(text: string): string[] {
     .map(([section]) => section);
 }
 
-function analyzeResumeText(resumeText: string, student: typeof studentsTable.$inferSelect) {
+function analyzeResumeText(resumeText: string) {
   const lowerText = resumeText.toLowerCase();
   const wordCount = resumeText.split(/\s+/).filter(Boolean).length;
 
@@ -91,9 +89,8 @@ function analyzeResumeText(resumeText: string, student: typeof studentsTable.$in
   const contactScore = (hasContactInfo ? 2 : 0) + (hasLinkedIn ? 1.5 : 0) + (hasGitHub ? 1.5 : 0);
   const quantScore = hasQuantifiedResults ? 3 : 0;
   const lengthScore = wordCount >= 400 ? 4 : wordCount >= 250 ? 2 : 0;
-  const academicBonus = (student.percentage ?? 0) >= 75 ? 4 : (student.percentage ?? 0) >= 60 ? 2 : 0;
 
-  const rawScore = skillScore + experienceScore + educationScore + certScore + softSkillScore + sectionScore + contactScore + quantScore + lengthScore + academicBonus;
+  const rawScore = skillScore + experienceScore + educationScore + certScore + softSkillScore + sectionScore + contactScore + quantScore + lengthScore;
   const score = Math.min(Math.round(rawScore * 10) / 10, 100);
 
   const eligibilityPrediction = score >= 70 ? "Eligible" : score >= 50 ? "Potentially Eligible" : "Not Eligible";
@@ -111,14 +108,13 @@ function analyzeResumeText(resumeText: string, student: typeof studentsTable.$in
   if (sectionsPresent.length >= 5) strengths.push(`Well-structured resume with ${sectionsPresent.length} clear sections`);
   if (experienceMatches.length >= 4) strengths.push("Strong experience/project descriptions");
   if (softSkillMatches.length >= 3) strengths.push("Soft skills well represented");
-  if ((student.percentage ?? 0) >= 75) strengths.push(`Strong academic score (${student.percentage}%) — a positive signal for recruiters`);
   if (wordCount >= 400) strengths.push("Resume has good depth and completeness");
   if (strengths.length === 0) strengths.push("Resume submitted for analysis");
 
   // Weaknesses
   const weaknesses: string[] = [];
   if (skillsFound.length < 4) weaknesses.push(`Only ${skillsFound.length} technical skill(s) found — resume needs more relevant technologies`);
-  if (!sectionsPresent.includes("objective") && !sectionsPresent.includes("summary")) weaknesses.push("Missing professional summary or objective section");
+  if (!sectionsPresent.includes("objective")) weaknesses.push("Missing professional summary or objective section");
   if (!sectionsPresent.includes("projects")) weaknesses.push("No projects section detected — projects are critical for freshers");
   if (!sectionsPresent.includes("certifications")) weaknesses.push("No certifications found — online certs add credibility");
   if (!hasLinkedIn) weaknesses.push("LinkedIn profile not included");
@@ -127,8 +123,6 @@ function analyzeResumeText(resumeText: string, student: typeof studentsTable.$in
   if (!hasQuantifiedResults) weaknesses.push("No quantified achievements — missing numbers (e.g., '40% faster', '500+ users')");
   if (wordCount < 250) weaknesses.push(`Resume is too short (${wordCount} words) — aim for at least 400 words`);
   if (softSkillMatches.length < 2) weaknesses.push("Soft skills not highlighted — recruiters look for communication and leadership");
-  if ((student.attendance ?? 0) < 75) weaknesses.push("Attendance below 75% may flag during background checks");
-  if ((student.percentage ?? 0) < 60) weaknesses.push("Academic percentage is below placement threshold for many companies");
 
   // Specific changes to make
   const recommendations: string[] = [];
@@ -142,12 +136,9 @@ function analyzeResumeText(resumeText: string, student: typeof studentsTable.$in
   if (!hasQuantifiedResults) recommendations.push("Quantify your impact: replace vague bullets with numbers (e.g. 'Reduced load time by 30%', 'Built for 200+ users')");
   if (!sectionsPresent.includes("projects")) recommendations.push("Add 2–3 projects with: title, tech stack used, what problem it solved, and a GitHub link");
   if (certificationMatches.length === 0) recommendations.push("Complete 1–2 free certifications (Google, AWS Free Tier, or NPTEL) and list them");
-  if (wordCount < 300) recommendations.push(`Expand resume content to at least 400 words — elaborate on each role, project, and achievement`);
+  if (wordCount < 300) recommendations.push("Expand resume content to at least 400 words — elaborate on each role, project, and achievement");
   recommendations.push("Use action verbs to start every bullet: 'Developed', 'Implemented', 'Optimized', 'Led', 'Deployed'");
   recommendations.push("Tailor your resume keywords to each job description before applying — ATS systems scan for exact matches");
-  if ((student.aptitudeScore ?? 0) >= 70 && (student.technicalScore ?? 0) >= 70) {
-    recommendations.push("Your aptitude and technical scores are strong — mention relevant test scores or competitive programming profiles (LeetCode, HackerRank)");
-  }
 
   return {
     skillsFound,
@@ -168,28 +159,16 @@ function analyzeResumeText(resumeText: string, student: typeof studentsTable.$in
 
 const router: IRouter = Router();
 
-// File upload + analyze
+// File upload + analyze (no student required)
 router.post(
   "/resume-analysis/upload",
   upload.single("resume"),
   async (req, res): Promise<void> => {
-    const studentId = parseInt(req.body?.studentId, 10);
-    if (!studentId || isNaN(studentId)) {
-      res.status(400).json({ error: "studentId is required" });
-      return;
-    }
     if (!req.file) {
       res.status(400).json({ error: "Resume file is required" });
       return;
     }
 
-    const [student] = await db.select().from(studentsTable).where(eq(studentsTable.id, studentId));
-    if (!student) {
-      res.status(404).json({ error: "Student not found" });
-      return;
-    }
-
-    // Extract text from file
     let resumeText = "";
     const mimetype = req.file.mimetype;
     const originalname = req.file.originalname.toLowerCase();
@@ -220,12 +199,11 @@ router.post(
       return;
     }
 
-    const analysis = analyzeResumeText(resumeText, student);
+    const analysis = analyzeResumeText(resumeText);
 
     const [record] = await db
       .insert(resumeAnalysisTable)
       .values({
-        studentId,
         resumeText: resumeText.slice(0, 10000),
         skillsFound: analysis.skillsFound,
         score: analysis.score,
@@ -249,7 +227,6 @@ router.post(
       weaknesses: record.weaknesses ?? [],
       recommendations: record.recommendations ?? [],
       analyzedAt: record.analyzedAt.toISOString(),
-      student: { ...student, createdAt: student.createdAt.toISOString() },
     });
   }
 );
@@ -259,53 +236,18 @@ router.get("/resume-analysis", async (_req, res): Promise<void> => {
   const records = await db
     .select()
     .from(resumeAnalysisTable)
-    .leftJoin(studentsTable, eq(resumeAnalysisTable.studentId, studentsTable.id))
     .orderBy(desc(resumeAnalysisTable.analyzedAt));
 
   res.json(
     records.map(r => ({
-      ...r.resume_analysis,
-      skillsFound: r.resume_analysis.skillsFound ?? [],
-      strengths: r.resume_analysis.strengths ?? [],
-      weaknesses: r.resume_analysis.weaknesses ?? [],
-      recommendations: r.resume_analysis.recommendations ?? [],
-      analyzedAt: r.resume_analysis.analyzedAt.toISOString(),
-      student: r.students ? { ...r.students, createdAt: r.students.createdAt.toISOString() } : null,
+      ...r,
+      skillsFound: r.skillsFound ?? [],
+      strengths: r.strengths ?? [],
+      weaknesses: r.weaknesses ?? [],
+      recommendations: r.recommendations ?? [],
+      analyzedAt: r.analyzedAt.toISOString(),
     }))
   );
-});
-
-// Get latest analysis for a student
-router.get("/resume-analysis/student/:studentId", async (req, res): Promise<void> => {
-  const params = GetStudentResumeAnalysisParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
-
-  const results = await db
-    .select()
-    .from(resumeAnalysisTable)
-    .leftJoin(studentsTable, eq(resumeAnalysisTable.studentId, studentsTable.id))
-    .where(eq(resumeAnalysisTable.studentId, params.data.studentId))
-    .orderBy(desc(resumeAnalysisTable.analyzedAt))
-    .limit(1);
-
-  if (results.length === 0) {
-    res.status(404).json({ error: "No resume analysis found for this student" });
-    return;
-  }
-
-  const r = results[0];
-  res.json({
-    ...r.resume_analysis,
-    skillsFound: r.resume_analysis.skillsFound ?? [],
-    strengths: r.resume_analysis.strengths ?? [],
-    weaknesses: r.resume_analysis.weaknesses ?? [],
-    recommendations: r.resume_analysis.recommendations ?? [],
-    analyzedAt: r.resume_analysis.analyzedAt.toISOString(),
-    student: r.students ? { ...r.students, createdAt: r.students.createdAt.toISOString() } : null,
-  });
 });
 
 export default router;

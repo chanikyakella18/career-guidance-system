@@ -6,7 +6,7 @@ import { relations } from "drizzle-orm";
 
 export const resumeAnalysisTable = pgTable("resume_analysis", {
   id: serial("id").primaryKey(),
-  studentId: integer("student_id").notNull().references(() => studentsTable.id, { onDelete: "cascade" }),
+  studentId: integer("student_id").references(() => studentsTable.id, { onDelete: "set null" }),
   resumeText: text("resume_text").notNull(),
   skillsFound: text("skills_found").array().notNull().default([]),
   score: real("score").notNull(),
