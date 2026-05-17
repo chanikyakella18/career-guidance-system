@@ -146,6 +146,25 @@ export interface EligibilitySummary {
   pending: number;
 }
 
+export interface ResumeAnalysis {
+  id: number;
+  studentId: number;
+  resumeText: string;
+  skillsFound: string[];
+  score: number;
+  eligibilityPrediction: string;
+  strengths: string[];
+  weaknesses: string[];
+  recommendations: string[];
+  analyzedAt: string;
+  student?: Student;
+}
+
+export interface ResumeAnalysisInput {
+  studentId: number;
+  resumeText: string;
+}
+
 export type ListStudentsParams = {
 department?: string;
 semester?: number;

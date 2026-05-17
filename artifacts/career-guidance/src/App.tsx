@@ -11,7 +11,7 @@ import Predictions from "./pages/predictions";
 import CareerSuggestions from "./pages/career-suggestions";
 import Eligibility from "./pages/eligibility";
 import Analytics from "./pages/analytics";
-import Models from "./pages/models";
+import ResumeAnalysis from "./pages/resume-analysis";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,7 +32,7 @@ function Router() {
         <Route path="/career-suggestions" component={CareerSuggestions} />
         <Route path="/eligibility" component={Eligibility} />
         <Route path="/analytics" component={Analytics} />
-        <Route path="/models" component={Models} />
+        <Route path="/resume-analysis" component={ResumeAnalysis} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

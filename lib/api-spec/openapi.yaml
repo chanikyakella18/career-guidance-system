@@ -11,8 +11,6 @@ tags:
     description: Health operations
   - name: students
     description: Student management
-  - name: models
-    description: ML models
   - name: predictions
     description: Performance predictions
   - name: eligibility
@@ -23,6 +21,8 @@ tags:
     description: Percentage grouping
   - name: dashboard
     description: Dashboard analytics
+  - name: resume-analysis
+    description: Resume analysis for placement prediction
 
 paths:
   /healthz:
@@ -365,6 +365,59 @@ paths:
                 items:
                   $ref: "#/components/schemas/PercentageGroup"
 
+  /resume-analysis:
+    get:
+      operationId: listResumeAnalyses
+      tags: [resume-analysis]
+      summary: List all resume analyses
+      responses:
+        "200":
+          description: List of resume analyses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ResumeAnalysis"
+    post:
+      operationId: analyzeResume
+      tags: [resume-analysis]
+      summary: Analyze a student resume for placement eligibility
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResumeAnalysisInput"
+      responses:
+        "201":
+          description: Analysis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeAnalysis"
+
+  /resume-analysis/student/{studentId}:
+    get:
+      operationId: getStudentResumeAnalysis
+      tags: [resume-analysis]
+      summary: Get latest resume analysis for a student
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Resume analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeAnalysis"
+        "404":
+          description: Not found
+
   /dashboard/stats:
     get:
       operationId: getDashboardStats
@@ -686,3 +739,47 @@ components:
           type: integer
         pending:
           type: integer
+
+    ResumeAnalysis:
+      type: object
+      required: [id, studentId, resumeText, skillsFound, score, eligibilityPrediction, strengths, weaknesses, recommendations, analyzedAt]
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        resumeText:
+          type: string
+        skillsFound:
+          type: array
+          items:
+            type: string
+        score:
+          type: number
+        eligibilityPrediction:
+          type: string
+        strengths:
+          type: array
+          items:
+            type: string
+        weaknesses:
+          type: array
+          items:
+            type: string
+        recommendations:
+          type: array
+          items:
+            type: string
+        analyzedAt:
+          type: string
+        student:
+          $ref: "#/components/schemas/Student"
+
+    ResumeAnalysisInput:
+      type: object
+      required: [studentId, resumeText]
+      properties:
+        studentId:
+          type: integer
+        resumeText:
+          type: string

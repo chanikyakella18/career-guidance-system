@@ -36,6 +36,8 @@ import type {
   PerformanceDistribution,
   Prediction,
   PredictionInput,
+  ResumeAnalysis,
+  ResumeAnalysisInput,
   Student,
   StudentInput,
   StudentUpdate
@@ -1473,6 +1475,231 @@ export const useComputePercentageGroups = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getComputePercentageGroupsMutationOptions(options));
     }
+
+export const getListResumeAnalysesUrl = () => {
+
+
+
+
+  return `/api/resume-analysis`
+}
+
+/**
+ * @summary List all resume analyses
+ */
+export const listResumeAnalyses = async ( options?: RequestInit): Promise<ResumeAnalysis[]> => {
+
+  return customFetch<ResumeAnalysis[]>(getListResumeAnalysesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListResumeAnalysesQueryKey = () => {
+    return [
+    `/api/resume-analysis`
+    ] as const;
+    }
+
+
+export const getListResumeAnalysesQueryOptions = <TData = Awaited<ReturnType<typeof listResumeAnalyses>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listResumeAnalyses>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListResumeAnalysesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listResumeAnalyses>>> = ({ signal }) => listResumeAnalyses({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listResumeAnalyses>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListResumeAnalysesQueryResult = NonNullable<Awaited<ReturnType<typeof listResumeAnalyses>>>
+export type ListResumeAnalysesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all resume analyses
+ */
+
+export function useListResumeAnalyses<TData = Awaited<ReturnType<typeof listResumeAnalyses>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listResumeAnalyses>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListResumeAnalysesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getAnalyzeResumeUrl = () => {
+
+
+
+
+  return `/api/resume-analysis`
+}
+
+/**
+ * @summary Analyze a student resume for placement eligibility
+ */
+export const analyzeResume = async (resumeAnalysisInput: ResumeAnalysisInput, options?: RequestInit): Promise<ResumeAnalysis> => {
+
+  return customFetch<ResumeAnalysis>(getAnalyzeResumeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      resumeAnalysisInput,)
+  }
+);}
+
+
+
+
+export const getAnalyzeResumeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof analyzeResume>>, TError,{data: BodyType<ResumeAnalysisInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof analyzeResume>>, TError,{data: BodyType<ResumeAnalysisInput>}, TContext> => {
+
+const mutationKey = ['analyzeResume'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof analyzeResume>>, {data: BodyType<ResumeAnalysisInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  analyzeResume(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AnalyzeResumeMutationResult = NonNullable<Awaited<ReturnType<typeof analyzeResume>>>
+    export type AnalyzeResumeMutationBody = BodyType<ResumeAnalysisInput>
+    export type AnalyzeResumeMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Analyze a student resume for placement eligibility
+ */
+export const useAnalyzeResume = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof analyzeResume>>, TError,{data: BodyType<ResumeAnalysisInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof analyzeResume>>,
+        TError,
+        {data: BodyType<ResumeAnalysisInput>},
+        TContext
+      > => {
+      return useMutation(getAnalyzeResumeMutationOptions(options));
+    }
+
+export const getGetStudentResumeAnalysisUrl = (studentId: number,) => {
+
+
+
+
+  return `/api/resume-analysis/student/${studentId}`
+}
+
+/**
+ * @summary Get latest resume analysis for a student
+ */
+export const getStudentResumeAnalysis = async (studentId: number, options?: RequestInit): Promise<ResumeAnalysis> => {
+
+  return customFetch<ResumeAnalysis>(getGetStudentResumeAnalysisUrl(studentId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetStudentResumeAnalysisQueryKey = (studentId: number,) => {
+    return [
+    `/api/resume-analysis/student/${studentId}`
+    ] as const;
+    }
+
+
+export const getGetStudentResumeAnalysisQueryOptions = <TData = Awaited<ReturnType<typeof getStudentResumeAnalysis>>, TError = ErrorType<void>>(studentId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStudentResumeAnalysis>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetStudentResumeAnalysisQueryKey(studentId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getStudentResumeAnalysis>>> = ({ signal }) => getStudentResumeAnalysis(studentId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(studentId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getStudentResumeAnalysis>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetStudentResumeAnalysisQueryResult = NonNullable<Awaited<ReturnType<typeof getStudentResumeAnalysis>>>
+export type GetStudentResumeAnalysisQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get latest resume analysis for a student
+ */
+
+export function useGetStudentResumeAnalysis<TData = Awaited<ReturnType<typeof getStudentResumeAnalysis>>, TError = ErrorType<void>>(
+ studentId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStudentResumeAnalysis>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetStudentResumeAnalysisQueryOptions(studentId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getGetDashboardStatsUrl = () => {
 

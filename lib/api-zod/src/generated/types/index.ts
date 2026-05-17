@@ -22,6 +22,8 @@ export * from './percentageGroup';
 export * from './performanceDistribution';
 export * from './prediction';
 export * from './predictionInput';
+export * from './resumeAnalysis';
+export * from './resumeAnalysisInput';
 export * from './student';
 export * from './studentInput';
 export * from './studentUpdate';

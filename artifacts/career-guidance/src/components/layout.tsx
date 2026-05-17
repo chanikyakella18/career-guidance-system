@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, Brain, Compass, CheckSquare, LineChart, Settings } from "lucide-react";
+import { LayoutDashboard, Users, Brain, Compass, CheckSquare, LineChart, FileText } from "lucide-react";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -12,7 +12,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/career-suggestions", label: "Career Suggestions", icon: Compass },
     { href: "/eligibility", label: "Eligibility", icon: CheckSquare },
     { href: "/analytics", label: "Analytics", icon: LineChart },
-    { href: "/models", label: "ML Models", icon: Settings },
+    { href: "/resume-analysis", label: "Resume Analysis", icon: FileText },
   ];
 
   return (

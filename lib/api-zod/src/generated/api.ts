@@ -392,6 +392,82 @@ export const ComputePercentageGroupsResponse = zod.array(ComputePercentageGroups
 
 
 /**
+ * @summary List all resume analyses
+ */
+export const ListResumeAnalysesResponseItem = zod.object({
+  "id": zod.number(),
+  "studentId": zod.number(),
+  "resumeText": zod.string(),
+  "skillsFound": zod.array(zod.string()),
+  "score": zod.number(),
+  "eligibilityPrediction": zod.string(),
+  "strengths": zod.array(zod.string()),
+  "weaknesses": zod.array(zod.string()),
+  "recommendations": zod.array(zod.string()),
+  "analyzedAt": zod.string(),
+  "student": zod.object({
+  "id": zod.number(),
+  "fullName": zod.string(),
+  "email": zod.string(),
+  "phone": zod.string().nullish(),
+  "department": zod.string(),
+  "semester": zod.number(),
+  "percentage": zod.number().nullish(),
+  "attendance": zod.number().nullish(),
+  "aptitudeScore": zod.number().nullish(),
+  "communicationScore": zod.number().nullish(),
+  "technicalScore": zod.number().nullish(),
+  "createdAt": zod.string().optional()
+}).optional()
+})
+export const ListResumeAnalysesResponse = zod.array(ListResumeAnalysesResponseItem)
+
+
+/**
+ * @summary Analyze a student resume for placement eligibility
+ */
+export const AnalyzeResumeBody = zod.object({
+  "studentId": zod.number(),
+  "resumeText": zod.string()
+})
+
+
+/**
+ * @summary Get latest resume analysis for a student
+ */
+export const GetStudentResumeAnalysisParams = zod.object({
+  "studentId": zod.coerce.number()
+})
+
+export const GetStudentResumeAnalysisResponse = zod.object({
+  "id": zod.number(),
+  "studentId": zod.number(),
+  "resumeText": zod.string(),
+  "skillsFound": zod.array(zod.string()),
+  "score": zod.number(),
+  "eligibilityPrediction": zod.string(),
+  "strengths": zod.array(zod.string()),
+  "weaknesses": zod.array(zod.string()),
+  "recommendations": zod.array(zod.string()),
+  "analyzedAt": zod.string(),
+  "student": zod.object({
+  "id": zod.number(),
+  "fullName": zod.string(),
+  "email": zod.string(),
+  "phone": zod.string().nullish(),
+  "department": zod.string(),
+  "semester": zod.number(),
+  "percentage": zod.number().nullish(),
+  "attendance": zod.number().nullish(),
+  "aptitudeScore": zod.number().nullish(),
+  "communicationScore": zod.number().nullish(),
+  "technicalScore": zod.number().nullish(),
+  "createdAt": zod.string().optional()
+}).optional()
+})
+
+
+/**
  * @summary Get dashboard summary stats
  */
 export const GetDashboardStatsResponse = zod.object({
