@@ -1,7 +1,18 @@
 import { Router, type IRouter } from "express";
 import { eq, desc } from "drizzle-orm";
 import { db, resumeAnalysisTable, studentsTable } from "@workspace/db";
-import { AnalyzeResumeBody, GetStudentResumeAnalysisParams } from "@workspace/api-zod";
+import { GetStudentResumeAnalysisParams } from "@workspace/api-zod";
+import multer from "multer";
+import { createRequire } from "node:module";
+import mammoth from "mammoth";
+
+const _require = createRequire(import.meta.url);
+// pdf-parse only exposes CJS; load via require to avoid ESM default-export issues
+const pdfParse = _require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+// ── Analysis logic ──────────────────────────────────────────────────────────
 
 const TECHNICAL_SKILLS = [
   "python", "java", "javascript", "typescript", "c++", "c#", "golang", "rust", "kotlin", "swift",
@@ -12,6 +23,7 @@ const TECHNICAL_SKILLS = [
   "html", "css", "tailwind", "bootstrap", "rest api", "graphql", "microservices",
   "git", "github", "linux", "bash", "data structures", "algorithms", "system design",
   "cybersecurity", "networking", "cloud computing", "devops", "agile", "scrum",
+  "excel", "power bi", "tableau", "hadoop", "spark", "kafka",
 ];
 
 const EXPERIENCE_KEYWORDS = [
@@ -36,66 +48,105 @@ const SOFT_SKILL_KEYWORDS = [
   "presentation", "critical thinking", "time management", "adaptable", "creative",
 ];
 
-function analyzeResume(resumeText: string, student: typeof studentsTable.$inferSelect) {
-  const lowerText = resumeText.toLowerCase();
+const SECTION_KEYWORDS = {
+  objective: ["objective", "summary", "profile", "about me"],
+  education: ["education", "qualification", "academic"],
+  experience: ["experience", "work history", "employment", "internship"],
+  skills: ["skills", "technical skills", "technologies", "tools"],
+  projects: ["projects", "personal projects", "academic projects"],
+  certifications: ["certifications", "certificates", "courses"],
+  achievements: ["achievements", "awards", "accomplishments", "honors"],
+  contact: ["email", "phone", "linkedin", "github", "portfolio"],
+};
 
-  const skillsFound = TECHNICAL_SKILLS.filter(skill => lowerText.includes(skill));
+function detectSections(text: string): string[] {
+  const lower = text.toLowerCase();
+  return Object.entries(SECTION_KEYWORDS)
+    .filter(([, keywords]) => keywords.some(k => lower.includes(k)))
+    .map(([section]) => section);
+}
+
+function analyzeResumeText(resumeText: string, student: typeof studentsTable.$inferSelect) {
+  const lowerText = resumeText.toLowerCase();
+  const wordCount = resumeText.split(/\s+/).filter(Boolean).length;
+
+  const skillsFound = TECHNICAL_SKILLS.filter(s => lowerText.includes(s));
   const experienceMatches = EXPERIENCE_KEYWORDS.filter(k => lowerText.includes(k));
   const educationMatches = EDUCATION_KEYWORDS.filter(k => lowerText.includes(k));
   const certificationMatches = CERTIFICATION_KEYWORDS.filter(k => lowerText.includes(k));
   const softSkillMatches = SOFT_SKILL_KEYWORDS.filter(k => lowerText.includes(k));
-
-  const wordCount = resumeText.split(/\s+/).length;
+  const sectionsPresent = detectSections(resumeText);
   const hasContactInfo = /\b[\w.-]+@[\w.-]+\.\w+\b/.test(resumeText) || /\b\d{10}\b/.test(resumeText);
+  const hasLinkedIn = lowerText.includes("linkedin");
+  const hasGitHub = lowerText.includes("github");
+  const hasQuantifiedResults = /\d+%|\d+ (users|clients|projects|systems|apps|students)/.test(lowerText);
 
-  // Scoring (out of 100)
+  // Scoring breakdown (out of 100)
   const skillScore = Math.min(skillsFound.length * 5, 35);
   const experienceScore = Math.min(experienceMatches.length * 3, 20);
-  const educationScore = Math.min(educationMatches.length * 3, 15);
-  const certScore = Math.min(certificationMatches.length * 5, 10);
-  const softSkillScore = Math.min(softSkillMatches.length * 2, 10);
-  const lengthScore = wordCount >= 300 ? 5 : wordCount >= 150 ? 3 : 0;
-  const contactScore = hasContactInfo ? 5 : 0;
+  const educationScore = Math.min(educationMatches.length * 2, 12);
+  const certScore = Math.min(certificationMatches.length * 4, 10);
+  const softSkillScore = Math.min(softSkillMatches.length * 1.5, 8);
+  const sectionScore = Math.min(sectionsPresent.length * 1, 7);
+  const contactScore = (hasContactInfo ? 2 : 0) + (hasLinkedIn ? 1.5 : 0) + (hasGitHub ? 1.5 : 0);
+  const quantScore = hasQuantifiedResults ? 3 : 0;
+  const lengthScore = wordCount >= 400 ? 4 : wordCount >= 250 ? 2 : 0;
+  const academicBonus = (student.percentage ?? 0) >= 75 ? 4 : (student.percentage ?? 0) >= 60 ? 2 : 0;
 
-  // Academic data bonus
-  const academicBonus =
-    (student.percentage ?? 0) >= 75 ? 5 :
-    (student.percentage ?? 0) >= 60 ? 2 : 0;
-
-  const rawScore = skillScore + experienceScore + educationScore + certScore + softSkillScore + lengthScore + contactScore + academicBonus;
-  const score = Math.min(Math.round(rawScore * 100) / 100, 100);
+  const rawScore = skillScore + experienceScore + educationScore + certScore + softSkillScore + sectionScore + contactScore + quantScore + lengthScore + academicBonus;
+  const score = Math.min(Math.round(rawScore * 10) / 10, 100);
 
   const eligibilityPrediction = score >= 70 ? "Eligible" : score >= 50 ? "Potentially Eligible" : "Not Eligible";
 
+  // Strengths
   const strengths: string[] = [];
-  if (skillsFound.length >= 6) strengths.push(`Strong technical profile with ${skillsFound.length} relevant skills`);
-  else if (skillsFound.length >= 3) strengths.push(`Good technical foundation with ${skillsFound.length} skills identified`);
-  if (experienceMatches.length >= 4) strengths.push("Well-documented work experience and project history");
-  if (certificationMatches.length > 0) strengths.push(`${certificationMatches.length} certification(s) found — adds credibility`);
-  if (educationMatches.length >= 3) strengths.push("Clear educational background mentioned");
-  if (softSkillMatches.length >= 3) strengths.push("Good range of soft skills highlighted");
-  if ((student.percentage ?? 0) >= 75) strengths.push(`Strong academic record (${student.percentage}%)`);
-  if (wordCount >= 300) strengths.push("Resume has good depth and detail");
-  if (strengths.length === 0) strengths.push("Resume submitted for review");
+  if (skillsFound.length >= 8) strengths.push(`Excellent technical depth — ${skillsFound.length} relevant skills identified`);
+  else if (skillsFound.length >= 5) strengths.push(`Good technical profile with ${skillsFound.length} skills detected`);
+  else if (skillsFound.length >= 2) strengths.push(`${skillsFound.length} technical skills found`);
+  if (certificationMatches.length > 0) strengths.push(`${certificationMatches.length} certification(s) detected — adds recruiter credibility`);
+  if (hasLinkedIn && hasGitHub) strengths.push("Both LinkedIn and GitHub profiles included — great for visibility");
+  else if (hasLinkedIn) strengths.push("LinkedIn profile included");
+  else if (hasGitHub) strengths.push("GitHub profile included");
+  if (hasQuantifiedResults) strengths.push("Quantified achievements detected — numbers make impact tangible");
+  if (sectionsPresent.length >= 5) strengths.push(`Well-structured resume with ${sectionsPresent.length} clear sections`);
+  if (experienceMatches.length >= 4) strengths.push("Strong experience/project descriptions");
+  if (softSkillMatches.length >= 3) strengths.push("Soft skills well represented");
+  if ((student.percentage ?? 0) >= 75) strengths.push(`Strong academic score (${student.percentage}%) — a positive signal for recruiters`);
+  if (wordCount >= 400) strengths.push("Resume has good depth and completeness");
+  if (strengths.length === 0) strengths.push("Resume submitted for analysis");
 
+  // Weaknesses
   const weaknesses: string[] = [];
-  if (skillsFound.length < 3) weaknesses.push("Too few technical skills mentioned — add more relevant technologies");
-  if (experienceMatches.length < 2) weaknesses.push("Insufficient experience or project descriptions");
-  if (educationMatches.length === 0) weaknesses.push("Educational qualifications not clearly stated");
-  if (!hasContactInfo) weaknesses.push("Contact information not detected");
-  if (wordCount < 150) weaknesses.push("Resume is too short — expand with more detail");
-  if (certificationMatches.length === 0) weaknesses.push("No certifications found — consider adding online courses");
-  if (softSkillMatches.length < 2) weaknesses.push("Soft skills not highlighted adequately");
-  if ((student.percentage ?? 0) < 60) weaknesses.push("Academic score may be a concern for some recruiters");
+  if (skillsFound.length < 4) weaknesses.push(`Only ${skillsFound.length} technical skill(s) found — resume needs more relevant technologies`);
+  if (!sectionsPresent.includes("objective") && !sectionsPresent.includes("summary")) weaknesses.push("Missing professional summary or objective section");
+  if (!sectionsPresent.includes("projects")) weaknesses.push("No projects section detected — projects are critical for freshers");
+  if (!sectionsPresent.includes("certifications")) weaknesses.push("No certifications found — online certs add credibility");
+  if (!hasLinkedIn) weaknesses.push("LinkedIn profile not included");
+  if (!hasGitHub) weaknesses.push("GitHub profile not mentioned — essential for tech roles");
+  if (!hasContactInfo) weaknesses.push("Contact information not clearly present");
+  if (!hasQuantifiedResults) weaknesses.push("No quantified achievements — missing numbers (e.g., '40% faster', '500+ users')");
+  if (wordCount < 250) weaknesses.push(`Resume is too short (${wordCount} words) — aim for at least 400 words`);
+  if (softSkillMatches.length < 2) weaknesses.push("Soft skills not highlighted — recruiters look for communication and leadership");
+  if ((student.attendance ?? 0) < 75) weaknesses.push("Attendance below 75% may flag during background checks");
+  if ((student.percentage ?? 0) < 60) weaknesses.push("Academic percentage is below placement threshold for many companies");
 
+  // Specific changes to make
   const recommendations: string[] = [];
-  if (skillsFound.length < 5) recommendations.push("Add more in-demand technical skills such as cloud platforms, frameworks, or databases");
-  if (experienceMatches.length < 3) recommendations.push("Include 2–3 project descriptions with specific technologies used and outcomes achieved");
-  if (certificationMatches.length === 0) recommendations.push("Earn a certification (AWS, Google, or Coursera) to strengthen your profile");
-  if (wordCount < 250) recommendations.push("Expand the resume to at least 300 words — add more context to each role/project");
-  recommendations.push("Tailor your resume keywords to the specific job description before applying");
-  if ((student.attendance ?? 0) >= 75 && (student.aptitudeScore ?? 0) >= 65) {
-    recommendations.push("Your academic metrics are strong — make sure they're clearly highlighted on the resume");
+  if (!sectionsPresent.includes("objective")) recommendations.push("Add a 2–3 line Professional Summary at the top tailored to your target role");
+  if (skillsFound.length < 6) {
+    const missing = ["Python", "SQL", "Git", "React", "AWS", "Docker"].filter(s => !skillsFound.includes(s.toLowerCase()));
+    if (missing.length) recommendations.push(`Add these high-demand skills if you know them: ${missing.slice(0, 4).join(", ")}`);
+  }
+  if (!hasGitHub) recommendations.push("Add your GitHub profile URL — most tech recruiters check it before interviews");
+  if (!hasLinkedIn) recommendations.push("Add your LinkedIn URL — recruiters often contact candidates directly there");
+  if (!hasQuantifiedResults) recommendations.push("Quantify your impact: replace vague bullets with numbers (e.g. 'Reduced load time by 30%', 'Built for 200+ users')");
+  if (!sectionsPresent.includes("projects")) recommendations.push("Add 2–3 projects with: title, tech stack used, what problem it solved, and a GitHub link");
+  if (certificationMatches.length === 0) recommendations.push("Complete 1–2 free certifications (Google, AWS Free Tier, or NPTEL) and list them");
+  if (wordCount < 300) recommendations.push(`Expand resume content to at least 400 words — elaborate on each role, project, and achievement`);
+  recommendations.push("Use action verbs to start every bullet: 'Developed', 'Implemented', 'Optimized', 'Led', 'Deployed'");
+  recommendations.push("Tailor your resume keywords to each job description before applying — ATS systems scan for exact matches");
+  if ((student.aptitudeScore ?? 0) >= 70 && (student.technicalScore ?? 0) >= 70) {
+    recommendations.push("Your aptitude and technical scores are strong — mention relevant test scores or competitive programming profiles (LeetCode, HackerRank)");
   }
 
   return {
@@ -105,11 +156,105 @@ function analyzeResume(resumeText: string, student: typeof studentsTable.$inferS
     strengths,
     weaknesses,
     recommendations,
+    sectionsPresent,
+    wordCount,
+    hasLinkedIn,
+    hasGitHub,
+    hasQuantifiedResults,
   };
 }
 
+// ── Routes ───────────────────────────────────────────────────────────────────
+
 const router: IRouter = Router();
 
+// File upload + analyze
+router.post(
+  "/resume-analysis/upload",
+  upload.single("resume"),
+  async (req, res): Promise<void> => {
+    const studentId = parseInt(req.body?.studentId, 10);
+    if (!studentId || isNaN(studentId)) {
+      res.status(400).json({ error: "studentId is required" });
+      return;
+    }
+    if (!req.file) {
+      res.status(400).json({ error: "Resume file is required" });
+      return;
+    }
+
+    const [student] = await db.select().from(studentsTable).where(eq(studentsTable.id, studentId));
+    if (!student) {
+      res.status(404).json({ error: "Student not found" });
+      return;
+    }
+
+    // Extract text from file
+    let resumeText = "";
+    const mimetype = req.file.mimetype;
+    const originalname = req.file.originalname.toLowerCase();
+
+    try {
+      if (mimetype === "application/pdf" || originalname.endsWith(".pdf")) {
+        const parsed = await pdfParse(req.file.buffer);
+        resumeText = parsed.text;
+      } else if (
+        mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+        originalname.endsWith(".docx")
+      ) {
+        const result = await mammoth.extractRawText({ buffer: req.file.buffer });
+        resumeText = result.value;
+      } else if (mimetype === "text/plain" || originalname.endsWith(".txt")) {
+        resumeText = req.file.buffer.toString("utf-8");
+      } else {
+        res.status(400).json({ error: "Unsupported file type. Please upload PDF, DOCX, or TXT." });
+        return;
+      }
+    } catch {
+      res.status(422).json({ error: "Could not parse the uploaded file. Ensure it is a valid PDF or DOCX." });
+      return;
+    }
+
+    if (!resumeText.trim()) {
+      res.status(422).json({ error: "No readable text found in the file. The PDF may be image-based (scanned)." });
+      return;
+    }
+
+    const analysis = analyzeResumeText(resumeText, student);
+
+    const [record] = await db
+      .insert(resumeAnalysisTable)
+      .values({
+        studentId,
+        resumeText: resumeText.slice(0, 10000),
+        skillsFound: analysis.skillsFound,
+        score: analysis.score,
+        eligibilityPrediction: analysis.eligibilityPrediction,
+        strengths: analysis.strengths,
+        weaknesses: analysis.weaknesses,
+        recommendations: analysis.recommendations,
+      })
+      .returning();
+
+    res.status(201).json({
+      ...record,
+      fileName: req.file.originalname,
+      wordCount: analysis.wordCount,
+      sectionsPresent: analysis.sectionsPresent,
+      hasLinkedIn: analysis.hasLinkedIn,
+      hasGitHub: analysis.hasGitHub,
+      hasQuantifiedResults: analysis.hasQuantifiedResults,
+      skillsFound: record.skillsFound ?? [],
+      strengths: record.strengths ?? [],
+      weaknesses: record.weaknesses ?? [],
+      recommendations: record.recommendations ?? [],
+      analyzedAt: record.analyzedAt.toISOString(),
+      student: { ...student, createdAt: student.createdAt.toISOString() },
+    });
+  }
+);
+
+// List all analyses
 router.get("/resume-analysis", async (_req, res): Promise<void> => {
   const records = await db
     .select()
@@ -130,46 +275,7 @@ router.get("/resume-analysis", async (_req, res): Promise<void> => {
   );
 });
 
-router.post("/resume-analysis", async (req, res): Promise<void> => {
-  const parsed = AnalyzeResumeBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-
-  const [student] = await db.select().from(studentsTable).where(eq(studentsTable.id, parsed.data.studentId));
-  if (!student) {
-    res.status(404).json({ error: "Student not found" });
-    return;
-  }
-
-  const result = analyzeResume(parsed.data.resumeText, student);
-
-  const [record] = await db
-    .insert(resumeAnalysisTable)
-    .values({
-      studentId: parsed.data.studentId,
-      resumeText: parsed.data.resumeText,
-      skillsFound: result.skillsFound,
-      score: result.score,
-      eligibilityPrediction: result.eligibilityPrediction,
-      strengths: result.strengths,
-      weaknesses: result.weaknesses,
-      recommendations: result.recommendations,
-    })
-    .returning();
-
-  res.status(201).json({
-    ...record,
-    skillsFound: record.skillsFound ?? [],
-    strengths: record.strengths ?? [],
-    weaknesses: record.weaknesses ?? [],
-    recommendations: record.recommendations ?? [],
-    analyzedAt: record.analyzedAt.toISOString(),
-    student: { ...student, createdAt: student.createdAt.toISOString() },
-  });
-});
-
+// Get latest analysis for a student
 router.get("/resume-analysis/student/:studentId", async (req, res): Promise<void> => {
   const params = GetStudentResumeAnalysisParams.safeParse(req.params);
   if (!params.success) {
