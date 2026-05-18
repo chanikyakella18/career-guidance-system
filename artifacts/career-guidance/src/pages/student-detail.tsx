@@ -9,6 +9,7 @@ import {
   useGetStudentPrediction,
   useGetStudentEligibility,
   useGetStudentCareerSuggestion,
+  useUpdateStudent,
   getGetStudentPredictionQueryKey,
   getGetStudentEligibilityQueryKey,
   getGetStudentCareerSuggestionQueryKey
@@ -20,9 +21,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   ArrowLeft, CheckSquare, Compass, User, Phone, Mail,
-  TrendingUp, BarChart3, Activity, GraduationCap, Brain, Target
+  TrendingUp, BarChart3, Activity, GraduationCap, Brain, Target,
+  CalendarDays, Save, RefreshCw
 } from "lucide-react";
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer,
@@ -156,6 +160,32 @@ export default function StudentDetail() {
   const createPrediction = useCreatePrediction();
   const computeEligibility = useComputeEligibility();
   const createCareerSuggestion = useCreateCareerSuggestion();
+  const updateStudent = useUpdateStudent();
+
+  // Manual attendance state
+  const [attendedClasses, setAttendedClasses] = useState<string>("");
+  const [totalClasses, setTotalClasses] = useState<string>("");
+
+  const attendedNum = parseInt(attendedClasses, 10);
+  const totalNum = parseInt(totalClasses, 10);
+  const calculatedPct =
+    !isNaN(attendedNum) && !isNaN(totalNum) && totalNum > 0
+      ? Math.min(100, Math.round((attendedNum / totalNum) * 1000) / 10)
+      : null;
+
+  const handleSaveAttendance = () => {
+    if (calculatedPct === null) return;
+    updateStudent.mutate(
+      { id: studentId, data: { attendance: calculatedPct } },
+      {
+        onSuccess: () => {
+          toast({ title: "Attendance saved", description: `Updated to ${calculatedPct.toFixed(1)}%` });
+          queryClient.invalidateQueries({ queryKey: getGetStudentQueryKey(studentId) });
+        },
+        onError: () => toast({ title: "Failed to save attendance", variant: "destructive" }),
+      }
+    );
+  };
 
   const handleRunPrediction = () => {
     createPrediction.mutate({ data: { studentId } }, {
@@ -363,6 +393,204 @@ export default function StudentDetail() {
             </Card>
           </div>
         </div>
+      </div>
+
+      {/* ── Manual Attendance Entry ── */}
+      <div>
+        <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
+          <CalendarDays className="w-5 h-5 text-accent" />
+          Attendance Entry
+        </h2>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Mark Attendance Manually</CardTitle>
+            <CardDescription className="text-xs">
+              Enter the number of classes attended and total classes held. The percentage and performance will update automatically.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Left: Inputs */}
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="attended" className="text-sm">Classes Attended</Label>
+                    <Input
+                      id="attended"
+                      type="number"
+                      min={0}
+                      placeholder="e.g. 72"
+                      value={attendedClasses}
+                      onChange={(e) => setAttendedClasses(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="total" className="text-sm">Total Classes</Label>
+                    <Input
+                      id="total"
+                      type="number"
+                      min={1}
+                      placeholder="e.g. 90"
+                      value={totalClasses}
+                      onChange={(e) => setTotalClasses(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Live preview */}
+                {calculatedPct !== null && (
+                  <div className="rounded-lg border p-4 bg-muted/30 space-y-3 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Calculated Attendance</span>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="text-xl font-bold font-mono"
+                          style={{ color: getScoreColor(calculatedPct) }}
+                        >
+                          {calculatedPct.toFixed(1)}%
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className={`text-xs border ${getPerformanceBadgeClass(getScoreLabel(calculatedPct))}`}
+                        >
+                          {getScoreLabel(calculatedPct)}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${calculatedPct}%`,
+                          background: getScoreColor(calculatedPct),
+                        }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      {attendedClasses} attended out of {totalClasses} classes ·{" "}
+                      {calculatedPct >= 75
+                        ? "✓ Meets the 75% placement threshold"
+                        : `✗ ${(75 - calculatedPct).toFixed(1)}% below placement threshold`}
+                    </p>
+                  </div>
+                )}
+
+                {attendedClasses && totalClasses && calculatedPct === null && (
+                  <p className="text-xs text-destructive">Total classes must be greater than 0.</p>
+                )}
+
+                <div className="flex items-center gap-3">
+                  <Button
+                    onClick={handleSaveAttendance}
+                    disabled={calculatedPct === null || updateStudent.isPending}
+                    className="flex-1"
+                  >
+                    {updateStudent.isPending ? (
+                      <span className="flex items-center gap-2">
+                        <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                        Saving...
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        <Save className="w-4 h-4" />
+                        Save Attendance
+                      </span>
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => { setAttendedClasses(""); setTotalClasses(""); }}
+                    title="Clear"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Right: Current attendance status */}
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground font-medium">Current Recorded Attendance</p>
+                <div className="flex items-center gap-4">
+                  <div
+                    className="relative flex items-center justify-center w-20 h-20 rounded-full border-8 shrink-0"
+                    style={{ borderColor: getScoreColor(student.attendance ?? 0) + "33" }}
+                  >
+                    <div
+                      className="absolute inset-2 rounded-full flex flex-col items-center justify-center"
+                      style={{ background: getScoreColor(student.attendance ?? 0) + "15" }}
+                    >
+                      <span
+                        className="text-lg font-bold font-mono leading-none"
+                        style={{ color: getScoreColor(student.attendance ?? 0) }}
+                      >
+                        {(student.attendance ?? 0).toFixed(0)}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">%</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p
+                      className="text-lg font-bold"
+                      style={{ color: getScoreColor(student.attendance ?? 0) }}
+                    >
+                      {getScoreLabel(student.attendance ?? 0)}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {(student.attendance ?? 0) >= 75
+                        ? "Above placement threshold (75%)"
+                        : "Below placement threshold (75%)"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Attendance</span>
+                    <span className="font-mono font-medium">{(student.attendance ?? 0).toFixed(1)}%</span>
+                  </div>
+                  <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-700"
+                      style={{
+                        width: `${student.attendance ?? 0}%`,
+                        background: getScoreColor(student.attendance ?? 0),
+                      }}
+                    />
+                  </div>
+                  {/* Threshold marker */}
+                  <div className="relative h-3">
+                    <div
+                      className="absolute top-0 w-px h-3 bg-amber-400"
+                      style={{ left: "75%" }}
+                    />
+                    <span
+                      className="absolute top-0 text-[10px] text-amber-600 font-medium"
+                      style={{ left: "calc(75% + 3px)" }}
+                    >
+                      75% threshold
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  {[
+                    { label: "Excellent", range: "≥ 85%", color: "#16a34a" },
+                    { label: "Good", range: "70–84%", color: "#2563eb" },
+                    { label: "Average", range: "50–69%", color: "#d97706" },
+                  ].map((item) => (
+                    <div key={item.label} className="text-center p-2 rounded-lg bg-muted/50">
+                      <div className="w-2 h-2 rounded-full mx-auto mb-1" style={{ background: item.color }} />
+                      <p className="text-[10px] font-medium">{item.label}</p>
+                      <p className="text-[10px] text-muted-foreground">{item.range}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* ── AI Insights ── */}
