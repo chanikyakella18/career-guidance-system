@@ -162,27 +162,48 @@ export default function StudentDetail() {
   const createCareerSuggestion = useCreateCareerSuggestion();
   const updateStudent = useUpdateStudent();
 
-  // Manual attendance state
-  const [attendedClasses, setAttendedClasses] = useState<string>("");
-  const [totalClasses, setTotalClasses] = useState<string>("");
+  // Manual score entry state — seeded from current student data when editing
+  const [scoreForm, setScoreForm] = useState({
+    percentage: "",
+    attendance: "",
+    aptitudeScore: "",
+    communicationScore: "",
+    technicalScore: "",
+  });
 
-  const attendedNum = parseInt(attendedClasses, 10);
-  const totalNum = parseInt(totalClasses, 10);
-  const calculatedPct =
-    !isNaN(attendedNum) && !isNaN(totalNum) && totalNum > 0
-      ? Math.min(100, Math.round((attendedNum / totalNum) * 1000) / 10)
-      : null;
+  const setField = (field: keyof typeof scoreForm, val: string) =>
+    setScoreForm(prev => ({ ...prev, [field]: val }));
 
-  const handleSaveAttendance = () => {
-    if (calculatedPct === null) return;
+  const parseScore = (v: string) => {
+    const n = parseFloat(v);
+    return !isNaN(n) && n >= 0 && n <= 100 ? n : null;
+  };
+
+  const parsedScores = {
+    percentage: parseScore(scoreForm.percentage),
+    attendance: parseScore(scoreForm.attendance),
+    aptitudeScore: parseScore(scoreForm.aptitudeScore),
+    communicationScore: parseScore(scoreForm.communicationScore),
+    technicalScore: parseScore(scoreForm.technicalScore),
+  };
+
+  const hasAnyScore = Object.values(parsedScores).some(v => v !== null);
+
+  const handleSaveScores = () => {
+    const payload: Record<string, number> = {};
+    for (const [key, val] of Object.entries(parsedScores)) {
+      if (val !== null) payload[key] = val;
+    }
+    if (!Object.keys(payload).length) return;
     updateStudent.mutate(
-      { id: studentId, data: { attendance: calculatedPct } },
+      { id: studentId, data: payload },
       {
         onSuccess: () => {
-          toast({ title: "Attendance saved", description: `Updated to ${calculatedPct.toFixed(1)}%` });
+          toast({ title: "Scores saved", description: "Student records updated successfully." });
           queryClient.invalidateQueries({ queryKey: getGetStudentQueryKey(studentId) });
+          setScoreForm({ percentage: "", attendance: "", aptitudeScore: "", communicationScore: "", technicalScore: "" });
         },
-        onError: () => toast({ title: "Failed to save attendance", variant: "destructive" }),
+        onError: () => toast({ title: "Failed to save scores", variant: "destructive" }),
       }
     );
   };
@@ -395,96 +416,83 @@ export default function StudentDetail() {
         </div>
       </div>
 
-      {/* ── Manual Attendance Entry ── */}
+      {/* ── Manual Score Entry ── */}
       <div>
         <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
-          <CalendarDays className="w-5 h-5 text-accent" />
-          Attendance Entry
+          <Save className="w-5 h-5 text-accent" />
+          Update Scores Manually
         </h2>
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Mark Attendance Manually</CardTitle>
+            <CardTitle className="text-sm">Enter Scores</CardTitle>
             <CardDescription className="text-xs">
-              Enter the number of classes attended and total classes held. The percentage and performance will update automatically.
+              Type a value (0–100) for any field you want to update. Leave blank to keep the current value. A live preview appears as you type.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Left: Inputs */}
-              <div className="space-y-5">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="attended" className="text-sm">Classes Attended</Label>
-                    <Input
-                      id="attended"
-                      type="number"
-                      min={0}
-                      placeholder="e.g. 72"
-                      value={attendedClasses}
-                      onChange={(e) => setAttendedClasses(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="total" className="text-sm">Total Classes</Label>
-                    <Input
-                      id="total"
-                      type="number"
-                      min={1}
-                      placeholder="e.g. 90"
-                      value={totalClasses}
-                      onChange={(e) => setTotalClasses(e.target.value)}
-                    />
-                  </div>
-                </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
-                {/* Live preview */}
-                {calculatedPct !== null && (
-                  <div className="rounded-lg border p-4 bg-muted/30 space-y-3 animate-in fade-in duration-200">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Calculated Attendance</span>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="text-xl font-bold font-mono"
-                          style={{ color: getScoreColor(calculatedPct) }}
-                        >
-                          {calculatedPct.toFixed(1)}%
-                        </span>
-                        <Badge
-                          variant="outline"
-                          className={`text-xs border ${getPerformanceBadgeClass(getScoreLabel(calculatedPct))}`}
-                        >
-                          {getScoreLabel(calculatedPct)}
-                        </Badge>
+              {/* ── Left: Input fields ── */}
+              <div className="space-y-4">
+                {([
+                  { key: "percentage",       label: "Academic Percentage",  placeholder: `Current: ${student.percentage ?? "—"}%`,  icon: <GraduationCap className="w-3.5 h-3.5" /> },
+                  { key: "attendance",       label: "Attendance",           placeholder: `Current: ${student.attendance ?? "—"}%`,    icon: <CalendarDays className="w-3.5 h-3.5" /> },
+                  { key: "aptitudeScore",    label: "Aptitude Score",       placeholder: `Current: ${student.aptitudeScore ?? "—"}/100`, icon: <Brain className="w-3.5 h-3.5" /> },
+                  { key: "communicationScore", label: "Communication Score", placeholder: `Current: ${student.communicationScore ?? "—"}/100`, icon: <TrendingUp className="w-3.5 h-3.5" /> },
+                  { key: "technicalScore",   label: "Technical Score",      placeholder: `Current: ${student.technicalScore ?? "—"}/100`,  icon: <BarChart3 className="w-3.5 h-3.5" /> },
+                ] as const).map(({ key, label, placeholder, icon }) => {
+                  const val = parsedScores[key];
+                  return (
+                    <div key={key} className="space-y-1.5">
+                      <Label className="text-sm flex items-center gap-1.5 text-muted-foreground">
+                        {icon} {label}
+                      </Label>
+                      <div className="flex items-center gap-3">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={0.1}
+                          placeholder={placeholder}
+                          value={scoreForm[key]}
+                          onChange={(e) => setField(key, e.target.value)}
+                          className={val !== null ? "border-primary/50 ring-1 ring-primary/20" : ""}
+                        />
+                        {val !== null && (
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-sm font-bold font-mono" style={{ color: getScoreColor(val) }}>
+                              {val.toFixed(1)}%
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] px-1.5 py-0 border ${getPerformanceBadgeClass(getScoreLabel(val))}`}
+                            >
+                              {getScoreLabel(val)}
+                            </Badge>
+                          </div>
+                        )}
                       </div>
+                      {val !== null && (
+                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-300"
+                            style={{ width: `${val}%`, background: getScoreColor(val) }}
+                          />
+                        </div>
+                      )}
+                      {scoreForm[key] !== "" && val === null && (
+                        <p className="text-[11px] text-destructive">Enter a value between 0 and 100.</p>
+                      )}
                     </div>
-                    <div className="h-2.5 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: `${calculatedPct}%`,
-                          background: getScoreColor(calculatedPct),
-                        }}
-                      />
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      {attendedClasses} attended out of {totalClasses} classes ·{" "}
-                      {calculatedPct >= 75
-                        ? "✓ Meets the 75% placement threshold"
-                        : `✗ ${(75 - calculatedPct).toFixed(1)}% below placement threshold`}
-                    </p>
-                  </div>
-                )}
+                  );
+                })}
 
-                {attendedClasses && totalClasses && calculatedPct === null && (
-                  <p className="text-xs text-destructive">Total classes must be greater than 0.</p>
-                )}
-
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 pt-2">
                   <Button
-                    onClick={handleSaveAttendance}
-                    disabled={calculatedPct === null || updateStudent.isPending}
                     className="flex-1"
+                    onClick={handleSaveScores}
+                    disabled={!hasAnyScore || updateStudent.isPending}
                   >
                     {updateStudent.isPending ? (
                       <span className="flex items-center gap-2">
@@ -494,99 +502,91 @@ export default function StudentDetail() {
                     ) : (
                       <span className="flex items-center gap-2">
                         <Save className="w-4 h-4" />
-                        Save Attendance
+                        Save Changes
                       </span>
                     )}
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => { setAttendedClasses(""); setTotalClasses(""); }}
-                    title="Clear"
+                    title="Clear all fields"
+                    onClick={() => setScoreForm({ percentage: "", attendance: "", aptitudeScore: "", communicationScore: "", technicalScore: "" })}
                   >
                     <RefreshCw className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
 
-              {/* Right: Current attendance status */}
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground font-medium">Current Recorded Attendance</p>
-                <div className="flex items-center gap-4">
-                  <div
-                    className="relative flex items-center justify-center w-20 h-20 rounded-full border-8 shrink-0"
-                    style={{ borderColor: getScoreColor(student.attendance ?? 0) + "33" }}
-                  >
-                    <div
-                      className="absolute inset-2 rounded-full flex flex-col items-center justify-center"
-                      style={{ background: getScoreColor(student.attendance ?? 0) + "15" }}
-                    >
-                      <span
-                        className="text-lg font-bold font-mono leading-none"
-                        style={{ color: getScoreColor(student.attendance ?? 0) }}
-                      >
-                        {(student.attendance ?? 0).toFixed(0)}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">%</span>
-                    </div>
-                  </div>
-                  <div>
-                    <p
-                      className="text-lg font-bold"
-                      style={{ color: getScoreColor(student.attendance ?? 0) }}
-                    >
-                      {getScoreLabel(student.attendance ?? 0)}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {(student.attendance ?? 0) >= 75
-                        ? "Above placement threshold (75%)"
-                        : "Below placement threshold (75%)"}
-                    </p>
-                  </div>
+              {/* ── Right: Live preview summary ── */}
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-muted-foreground">Live Preview</p>
+                <div className="rounded-xl border bg-muted/30 p-4 space-y-4">
+                  {([
+                    { key: "percentage",        label: "Academic %",    current: student.percentage },
+                    { key: "attendance",        label: "Attendance",    current: student.attendance },
+                    { key: "aptitudeScore",     label: "Aptitude",      current: student.aptitudeScore },
+                    { key: "communicationScore",label: "Communication", current: student.communicationScore },
+                    { key: "technicalScore",    label: "Technical",     current: student.technicalScore },
+                  ] as const).map(({ key, label, current }) => {
+                    const newVal = parsedScores[key];
+                    const displayVal = newVal !== null ? newVal : (current ?? 0);
+                    const changed = newVal !== null && newVal !== current;
+                    return (
+                      <div key={key} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground flex items-center gap-1.5">
+                            {label}
+                            {changed && (
+                              <span className="text-[10px] bg-primary/10 text-primary px-1 rounded">updated</span>
+                            )}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {changed && (
+                              <span className="text-[10px] text-muted-foreground line-through">{(current ?? 0).toFixed(0)}%</span>
+                            )}
+                            <span className="font-mono font-semibold text-xs" style={{ color: getScoreColor(displayVal) }}>
+                              {displayVal.toFixed(1)}%
+                            </span>
+                          </div>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{ width: `${displayVal}%`, background: getScoreColor(displayVal) }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Updated overall */}
+                  {(() => {
+                    const vals = [
+                      parsedScores.percentage ?? (student.percentage ?? 0),
+                      parsedScores.attendance ?? (student.attendance ?? 0),
+                      parsedScores.aptitudeScore ?? (student.aptitudeScore ?? 0),
+                      parsedScores.communicationScore ?? (student.communicationScore ?? 0),
+                      parsedScores.technicalScore ?? (student.technicalScore ?? 0),
+                    ];
+                    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+                    const color = getScoreColor(avg);
+                    return (
+                      <div className="pt-2 border-t flex items-center justify-between">
+                        <span className="text-xs font-medium">Overall Average</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-base font-bold font-mono" style={{ color }}>{avg.toFixed(1)}%</span>
+                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 border ${getPerformanceBadgeClass(getScoreLabel(avg))}`}>
+                            {getScoreLabel(avg)}
+                          </Badge>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Attendance</span>
-                    <span className="font-mono font-medium">{(student.attendance ?? 0).toFixed(1)}%</span>
-                  </div>
-                  <div className="h-2.5 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-700"
-                      style={{
-                        width: `${student.attendance ?? 0}%`,
-                        background: getScoreColor(student.attendance ?? 0),
-                      }}
-                    />
-                  </div>
-                  {/* Threshold marker */}
-                  <div className="relative h-3">
-                    <div
-                      className="absolute top-0 w-px h-3 bg-amber-400"
-                      style={{ left: "75%" }}
-                    />
-                    <span
-                      className="absolute top-0 text-[10px] text-amber-600 font-medium"
-                      style={{ left: "calc(75% + 3px)" }}
-                    >
-                      75% threshold
-                    </span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 pt-1">
-                  {[
-                    { label: "Excellent", range: "≥ 85%", color: "#16a34a" },
-                    { label: "Good", range: "70–84%", color: "#2563eb" },
-                    { label: "Average", range: "50–69%", color: "#d97706" },
-                  ].map((item) => (
-                    <div key={item.label} className="text-center p-2 rounded-lg bg-muted/50">
-                      <div className="w-2 h-2 rounded-full mx-auto mb-1" style={{ background: item.color }} />
-                      <p className="text-[10px] font-medium">{item.label}</p>
-                      <p className="text-[10px] text-muted-foreground">{item.range}</p>
-                    </div>
-                  ))}
-                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Only filled fields will be updated. Empty fields keep their current values.
+                </p>
               </div>
             </div>
           </CardContent>
