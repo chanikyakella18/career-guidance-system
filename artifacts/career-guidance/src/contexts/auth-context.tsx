@@ -8,47 +8,52 @@ interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
   login: (username: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue>({
   user: null,
-  isLoading: true,
+  isLoading: false,
   login: async () => {},
-  logout: async () => {},
+  logout: () => {},
 });
 
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const CREDENTIALS: Record<string, string> = {
+  admin: "admin123",
+};
+
+const STORAGE_KEY = "nexus_ai_user";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${BASE}/api/auth/me`, { credentials: "include" })
-      .then(r => (r.ok ? r.json() : null))
-      .then((data: AuthUser | null) => setUser(data))
-      .catch(() => setUser(null))
-      .finally(() => setIsLoading(false));
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        setUser(JSON.parse(saved) as AuthUser);
+      }
+    } catch {
+      localStorage.removeItem(STORAGE_KEY);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   const login = async (username: string, password: string) => {
-    const res = await fetch(`${BASE}/api/auth/login`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
-    if (!res.ok) {
-      const body = await res.json() as { error: string };
-      throw new Error(body.error || "Login failed.");
+    const trimmedUser = username.trim().toLowerCase();
+    const expected = CREDENTIALS[trimmedUser];
+    if (!expected || expected !== password.trim()) {
+      throw new Error("Invalid username or password.");
     }
-    const data = await res.json() as AuthUser;
-    setUser(data);
+    const authUser: AuthUser = { username: trimmedUser };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(authUser));
+    setUser(authUser);
   };
 
-  const logout = async () => {
-    await fetch(`${BASE}/api/auth/logout`, { method: "POST", credentials: "include" });
+  const logout = () => {
+    localStorage.removeItem(STORAGE_KEY);
     setUser(null);
   };
 
