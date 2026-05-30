@@ -373,7 +373,8 @@ export default function ResumeAnalysis() {
   const [uploading, setUploading] = useState(false);
   const [activeResult, setActiveResult] = useState<AnalysisResult | null>(null);
 
-  const { data: analyses, isLoading: analysesLoading } = useListResumeAnalyses();
+  const { data: analysesRaw, isLoading: analysesLoading } = useListResumeAnalyses();
+  const analyses = Array.isArray(analysesRaw) ? analysesRaw : (analysesRaw as any)?.data ?? (analysesRaw as any)?.analyses ?? [];
 
   async function handleAnalyze() {
     if (!file) {
@@ -547,3 +548,5 @@ export default function ResumeAnalysis() {
     </div>
   );
 }
+
+

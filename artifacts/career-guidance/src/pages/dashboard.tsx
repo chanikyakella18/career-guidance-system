@@ -30,10 +30,10 @@ export default function Dashboard() {
   }
 
   const items = [
-    { title: "Total Students", value: stats.totalStudents, icon: Users, color: "text-blue-500", bg: "bg-blue-500/10" },
-    { title: "Predictions Run", value: stats.totalPredictions, icon: BrainCircuit, color: "text-purple-500", bg: "bg-purple-500/10" },
-    { title: "Eligible for Placement", value: stats.totalEligible, icon: CheckCircle, color: "text-green-500", bg: "bg-green-500/10" },
-    { title: "Career Suggestions", value: stats.totalSuggestions, icon: Compass, color: "text-amber-500", bg: "bg-amber-500/10" },
+    { title: "Total Students", value: stats.totalStudents ?? 0, icon: Users, color: "text-blue-500", bg: "bg-blue-500/10" },
+    { title: "Predictions Run", value: stats.totalPredictions ?? 0, icon: BrainCircuit, color: "text-purple-500", bg: "bg-purple-500/10" },
+    { title: "Eligible for Placement", value: stats.totalEligible ?? 0, icon: CheckCircle, color: "text-green-500", bg: "bg-green-500/10" },
+    { title: "Career Suggestions", value: stats.totalSuggestions ?? 0, icon: Compass, color: "text-amber-500", bg: "bg-amber-500/10" },
   ];
 
   const eligibilityChartData = [
@@ -50,7 +50,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {items.map((item, i) => {
+        {items.filter(Boolean).map((item, i) => {
           const Icon = item.icon;
           return (
             <Card key={i} className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
@@ -61,7 +61,7 @@ export default function Dashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold font-mono">{item.value.toLocaleString()}</div>
+                <div className="text-3xl font-bold font-mono">{(item.value ?? 0).toLocaleString()}</div>
               </CardContent>
             </Card>
           );
@@ -76,7 +76,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={deptData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+              <BarChart data={Array.isArray(deptData) ? deptData : []} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                 <XAxis dataKey="department" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
@@ -127,7 +127,7 @@ export default function Dashboard() {
             <CardTitle className="text-sm text-muted-foreground">Average Percentage</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-mono">{stats.avgPercentage.toFixed(1)}%</div>
+            <div className="text-2xl font-bold font-mono">{(stats.avgPercentage ?? 0).toFixed(1)}%</div>
           </CardContent>
         </Card>
         <Card className="border-border/50 shadow-sm">
@@ -135,7 +135,7 @@ export default function Dashboard() {
             <CardTitle className="text-sm text-muted-foreground">Average Attendance</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-mono">{stats.avgAttendance.toFixed(1)}%</div>
+            <div className="text-2xl font-bold font-mono">{(stats.avgAttendance ?? 0).toFixed(1)}%</div>
           </CardContent>
         </Card>
         <Card className="border-border/50 shadow-sm">
@@ -143,10 +143,15 @@ export default function Dashboard() {
             <CardTitle className="text-sm text-muted-foreground">Average Aptitude</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-mono">{stats.avgAptitude.toFixed(1)}/100</div>
+            <div className="text-2xl font-bold font-mono">{(stats.avgAptitude ?? 0).toFixed(1)}/100</div>
           </CardContent>
         </Card>
       </div>
     </div>
   );
 }
+
+
+
+
+

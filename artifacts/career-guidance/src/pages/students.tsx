@@ -33,7 +33,8 @@ export default function Students() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: students, isLoading } = useListStudents({ search: search || undefined });
+  const { data: studentsData, isLoading } = useListStudents({ search: search || undefined });
+  const students = Array.isArray(studentsData) ? studentsData : (studentsData as any)?.data ?? (studentsData as any)?.students ?? [];
   const createStudent = useCreateStudent();
   const deleteStudent = useDeleteStudent();
 
@@ -188,3 +189,8 @@ export default function Students() {
     </div>
   );
 }
+
+
+
+
+
